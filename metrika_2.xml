@@ -1,0 +1,61 @@
+<yandex>
+    <edu_power_shard_servers>
+        <shard>
+            <internal_replication>true</internal_replication>
+            <replica>
+                <default_database>default</default_database>‌‌
+                <host>clickhouse1</host>
+                <port>9000</port>
+            </replica>
+            <replica>
+                <default_database>default</default_database>‌‌
+                <host>clickhouse2</host>
+                <port>9000</port>
+            </replica>
+            <replica>
+                <default_database>default</default_database>‌‌
+                <host>clickhouse3</host>
+                <port>9000</port>
+            </replica>
+        </shard>
+    </edu_power_shard_servers>
+    <edu_power_replic_servers>
+        <shard>
+            <internal_replication>true</internal_replication>
+            <replica>
+                <default_database>default</default_database>‌‌
+                <host>clickhouse1</host>
+                <port>9000</port>
+            </replica>
+            <replica>
+                <default_database>default</default_database>‌‌
+                <host>clickhouse2</host>
+                <port>9000</port>
+            </replica>
+            <replica>
+                <default_database>default</default_database>‌‌
+                <host>clickhouse3</host>
+                <port>9000</port>
+            </replica>
+        </shard>
+    </edu_power_replic_servers>
+    <zookeeper-servers>
+        <node index="1">
+            <host>localhost</host>
+            <port>2181</port>
+        </node>
+        <node index="2">
+            <host>localhost</host>
+            <port>2182</port>
+        </node>
+        <node index="3">
+            <host>localhost</host>
+            <port>2183</port>
+        </node>
+    </zookeeper-servers>
+    <macros>
+        <shard_replica>00</shard_replica>
+        <shard>01</shard>
+        <replica>clickhouse2</replica>
+    </macros>
+</yandex>
