@@ -1,63 +1,43 @@
-## Начало работы
+# Clickhouse cluster on Docker
 
-Установите Docker Engine и Docker Compose.
+Конфигурация кластера: 2 шарда с двумя репликами в каждом шарде (см. include_from.xml)
+Каждая нода пишет свои данные в директорию `ch*_volume`
 
-Выполните `docker compose up`. 
+Запуск кластера
 
-В результате будут подняты (в порядке запуска):
+    docker-compose up
 
-* Три Zookeeper
-* Три Clickhouse
-* HAProxy
+Подключится к ноде `ch1`
 
-## Сеть
+    clickhouse-client --host=127.0.0.1 --port=9011
+    
+Создать тестовую БД `test_db` на каждой ноде
 
-Все поднятые узлы смотрят во внутреннюю сеть Docker. Единственный выставляемый наружу порт -- 9001. Это порт для подключения к кластеру Clickhouse по протоколу clickhouse-client через HAProxy. 
+    create database test_db
+    
+На одной из нод создать реплицируемую таблицу (таблица создается на всех шардах и репликах)
 
-## Zookeeper
+    CREATE TABLE IF NOT EXISTS test_db.events_shard ON CLUSTER test_cluster (
+      event_date           Date DEFAULT toDate(now()),
+      company_id           UInt32,
+      product_id           UInt32
+    ) ENGINE=ReplicatedMergeTree(
+        '/clickhouse/tables/{shard}/events_shard', '{replica}',
+        event_date,
+        (company_id),
+        8192
+    );
+    
+Создать Distributed таблицу для записи/чтения данных
+  
+    CREATE TABLE IF NOT EXISTS test_db.events_dist
+    ON CLUSTER test_cluster AS test_db.events_shard
+    ENGINE = Distributed(test_cluster, test_db, events_shard, rand());
 
-Кластер Zookeeper толерантен к потере половины узлов (с округлением вниз). Clickhouse использует Zookeeper как сервис конфигураций (метаданные о хранящихся в Clickhouse данных, блокировки и т.д.). Zookeeper почти не требует настройки. Данные о доменах и портах серверов Clickhouse будут ему анонсированы самими серверами Clickhouse при запуске кластера. 
+Запись в distributed таблицу
 
-## Clickhouse 
+    INSERT INTO test_db.events_dist (company_id, product_id) VALUES (1, 11), (1, 12), (1, 13);
 
-Кластер Clickhouse может потерять любое число узлов (кроме всех) и при этом сохранять работоспособность. 
+Чтение из distributed таблицы
 
-Репликация асинхронная, мульти-мастер. И на запись и на чтение можно обращаться к любым из узлов кластера. Так как репликация асинхронная, то возможна потеря данных за краткий промежуток времени перед выходом из строя.
-
-При запросах `SELECT` Zookeeper не используется. Соответственно отказ кластера Zookeeper приведёт к отказу на запись, но не к отказу на чтение.
-
-## HAProxy
-
-Используется для балансирования нагрузки и обеспечения доступности. Распределение нагрузки производится по алгоритму round-robin. Healthcheck проверяется у порта протокола clickhouse-client (просто проверяется доступность TCP порта). В случае HTTP есть документированный Healthcheck -- GET на порт 8123 должен вернуть OK.
-
-HAProxy переадресовывает запросы на 9001 к одному из доступных узлов Clickhouse кластера, на порт 9000.
-
-## Тестовый сценарий
-
-Подключитесь к кластеру Clickhouse:
-
-`clickhouse-client --port=9001`
-
-Поочерёдно на каждой реплике выполните команду создания реплицируемой таблицы (замените `{replica-number}` на порядковый номер реплики) (обойти все реплики можно просто переподключаясь):
-
-`CREATE TABLE ExampleTable (ExDate default today(), SomeText String) ENGINE = ReplicatedMergeTree('/clickhouse/tables/example', '{replica-number}', ExDate, (ExDate, SomeText), 8192)`
-
-К сожалению , DDL на данный момент не реплицируются.
-
-Теперь вы можете отключить некоторые из сервисов:
-
-`sudo docker-compose kill {service-name}`
-
-И проверить работу кластера:
-
-`SELECT * FROM ExampleTable`
-
-`INSERT INTO ExampleTable (SomeText) VALUES ('Wow its replicating');`
-
-Также вы можете обратно поднять некоторые из сервисов:
-
-`sudo docker-compose up {service-name}`
-
-При этом данные, полученные кластером Clickhouse за время простоя данного сервиса, будут добавлены.
-
-Заметьте, что в случае поломки Zookeeper кластера (отказ больше половины узлов с округлением вверх) запросы `SELECT` будут выполняться всё-равно. А вот `INSERT` уже нет.
+    SELECT * FROM test_db.events_dist;

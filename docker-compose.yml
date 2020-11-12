@@ -1,114 +1,71 @@
 version: '2'
 
-networks: 
-  main:
-
 services:
-    haproxy:
-        image: haproxy
-        ports:
-            - "8123:8123"
-        volumes:
-            - ./haproxy.cfg:/usr/local/etc/haproxy/haproxy.cfg
-        networks:
-            - main  
-        depends_on: 
-          - clickhouse1
-          - clickhouse2
-          - clickhouse3
-    
-    
-    zoo1:
-        image: zookeeper:latest
-        expose:
-            - "2181"
-            - "2888"
-            - "3888"
-        ports:
-        - "2181:2181"
-        environment:
-            ZOO_MY_ID: "1"
-            ZOO_SERVERS: server.1=0.0.0.0:2888:3888 server.2=zoo2:2888:3888 server.3=zoo3:2888:3888
-        networks: 
-            - main  
+  haproxy:
+    image: haproxy
+    ports:
+      - "8123:8123"
+    volumes:
+      - ./haproxy.cfg:/usr/local/etc/haproxy/haproxy.cfg
+    depends_on:
+      - ch1
+      - ch2
+      - ch3
+      - ch4
 
-    zoo2:
-        image: zookeeper:latest
-        expose:
-            - "2181"
-            - "2888"
-            - "3888"
-        ports:
-          - "2182:2181"
-        environment:
-            ZOO_MY_ID: "2"
-            ZOO_SERVERS: server.1=zoo1:2888:3888 server.2=0.0.0.0:2888:3888 server.3=zoo3:2888:3888
-        networks: 
-            - main  
-
-    zoo3:
-        image: zookeeper:latest
-        expose:
-            - "2181"
-            - "2888"
-            - "3888"
-        ports:
-          - "2183:2181"
-        environment:
-            ZOO_MY_ID: "3"
-            ZOO_SERVERS: server.1=zoo1:2888:3888 server.2=zoo2:2888:3888 server.3=0.0.0.0:2888:3888
-        networks: 
-            - main  
-
-    clickhouse1:
-        image: yandex/clickhouse-server
-        expose:
-          #replica sync port
-          - "9010"
-          #client port
-          - "8123"
-        ports:
-        - "8124:8123"
-        depends_on:
-          - zoo1
-          - zoo2
-          - zoo3
-        volumes:
-          - ./config_1.xml:/etc/clickhouse-server/config.xml
-          - ./metrika_1.xml:/etc/metrika.xml
-        networks:
-            - main  
-          
-    clickhouse2:
-        image: yandex/clickhouse-server
-        expose:
-          #replica sync port
-          - "9011"
-          #client port
-          - "8123"
-        depends_on: 
-          - zoo1
-          - zoo2
-          - zoo3
-        volumes:
-          - ./config_2.xml:/etc/clickhouse-server/config.xml
-          - ./metrika_2.xml:/etc/metrika.xml
-        networks: 
-            - main  
-
-    clickhouse3:
-        image: yandex/clickhouse-server
-        expose: 
-          #replica sync port
-          - "9012"
-          #client port
-          - "8123"
-        depends_on: 
-          - zoo1
-          - zoo2
-          - zoo3
-        volumes:
-          - ./config_3.xml:/etc/clickhouse-server/config.xml
-          - ./metrika_3.xml:/etc/metrika.xml
-        networks: 
-            - main  
+  zookeeper:
+    image: zookeeper
+    ports:
+      - 2181:2181
+  ch1:
+    build:
+      context: .
+      dockerfile: Dockerfile.ch1
+    depends_on:
+      - zookeeper
+    expose:
+      - 8123
+    ports:
+      - 8811:8123
+      - 9011:9000
+    volumes:
+      - "./clickhouse-cluster-data/volume1:/var/lib/clickhouse"
+  ch2:
+    build:
+      context: .
+      dockerfile: Dockerfile.ch2
+    depends_on:
+      - zookeeper
+    expose:
+      - 8123
+    ports:
+      - 8812:8123
+      - 9012:9000
+    volumes:
+      - "./clickhouse-cluster-data/volume2:/var/lib/clickhouse"
+  ch3:
+    build:
+      context: .
+      dockerfile: Dockerfile.ch3
+    depends_on:
+      - zookeeper
+    expose:
+      - 8123
+    ports:
+      - 8813:8123
+      - 9013:9000
+    volumes:
+      - "./clickhouse-cluster-data/volume3:/var/lib/clickhouse"
+  ch4:
+    build:
+      context: .
+      dockerfile: Dockerfile.ch4
+    depends_on:
+      - zookeeper
+    expose:
+      - 8123
+    ports:
+      - 8814:8123
+      - 9014:9000
+    volumes:
+      - "./clickhouse-cluster-data/volume4:/var/lib/clickhouse"
